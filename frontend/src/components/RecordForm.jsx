@@ -4,27 +4,29 @@ import Input from './ui/Input';
 import Modal from './ui/Modal';
 import PopupDatePicker from './ui/PopupDatePicker';
 import { useForm, Controller } from 'react-hook-form';
-import { createRecord } from '../api/apis';
+import { createRecord, updateRecord } from '../api/apis';
 import { formatISO } from 'date-fns';
 import toast from 'react-hot-toast';
 
-export default function AddRecordForm({ isOpen, setIsOpen }) {
+export default function RecordForm({ isOpen, setIsOpen, isEdit, record }) {
   const {
     register,
     handleSubmit,
     control,
     formState: { errors },
     reset,
+    getValues,
+    trigger,
   } = useForm({
     defaultValues: {
-      patientId: '',
-      patientName: '',
-      diagnosis: '',
-      department: '',
-      status: '',
-      dateOfBirth: '',
-      admissionDate: '',
-      dischargeDate: '',
+      patientId: isEdit ? record.patientId : '',
+      patientName: isEdit ? record.patientName : '',
+      diagnosis: isEdit ? record.diagnosis : '',
+      department: isEdit ? record.department : '',
+      status: isEdit ? record.status : '',
+      dateOfBirth: isEdit ? new Date(record.dateOfBirth) : '',
+      admissionDate: isEdit ? new Date(record.admissionDate) : '',
+      dischargeDate: isEdit ? new Date(record.dischargeDate) : '',
     },
   });
 
@@ -32,7 +34,7 @@ export default function AddRecordForm({ isOpen, setIsOpen }) {
 
   const { mutate, isPending } = useMutation({
     mutationFn: (data) => {
-      return createRecord(data);
+      return isEdit ? updateRecord(record.id, data) : createRecord(data);
     },
     onSuccess: () => {
       setIsOpen(false);
@@ -40,8 +42,8 @@ export default function AddRecordForm({ isOpen, setIsOpen }) {
       reset();
     },
     onError: (error) => {
-      console.log(error);
-      toast.error('Failed to add record', error.message);
+      const message = error.response?.data?.error ?? 'Failed to save record';
+      toast.error(message);
     },
   });
 
@@ -59,10 +61,18 @@ export default function AddRecordForm({ isOpen, setIsOpen }) {
     mutate(data);
   };
 
+  const onCloseModal = () => {
+    setIsOpen(false);
+  };
+
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
   return (
-    <Modal title={'Add new record'} isOpen={isOpen} setIsOpen={setIsOpen}>
+    <Modal
+      title={isEdit ? 'Edit record' : 'Add new record'}
+      isOpen={isOpen}
+      setIsOpen={onCloseModal}
+    >
       <form
         className='flex flex-col gap-4 overflow-y-auto'
         onSubmit={handleSubmit(onSubmit)}
@@ -111,15 +121,31 @@ export default function AddRecordForm({ isOpen, setIsOpen }) {
           <Controller
             control={control}
             name='dateOfBirth'
+            rules={{
+              required: 'Date of Birth is required',
+              validate: (val) => {
+                const admissionDate = getValues('admissionDate');
+                if (admissionDate && val >= admissionDate)
+                  return 'Date of Birth must be before Admission Date';
+              },
+            }}
             render={({ field }) => (
               <PopupDatePicker
                 label='Date of Birth'
                 date={field.value}
-                onChange={field.onChange}
+                onChange={(date) => {
+                  field.onChange(date);
+                  trigger('admissionDate');
+                }}
                 maxDate={yesterday}
               />
             )}
           />
+          {errors.dateOfBirth && (
+            <span className='text-red-500 text-xs'>
+              {errors.dateOfBirth.message}
+            </span>
+          )}
         </div>
 
         <div>
@@ -142,36 +168,75 @@ export default function AddRecordForm({ isOpen, setIsOpen }) {
         </div>
 
         <div className='flex flex-col lg:flex-row items-center gap-4'>
-          <Controller
-            control={control}
-            name='admissionDate'
-            render={({ field }) => (
-              <PopupDatePicker
-                label='Admission Date'
-                date={field.value}
-                onChange={field.onChange}
-                maxDate={yesterday}
-              />
+          <div className='w-full'>
+            <Controller
+              control={control}
+              name='admissionDate'
+              rules={{
+                required: 'Admission Date is required',
+                validate: (val) => {
+                  const dateOfBirth = getValues('dateOfBirth');
+                  const dischargeDate = getValues('dischargeDate');
+                  if (dateOfBirth && val <= dateOfBirth)
+                    return 'Admission Date must be after Date of Birth';
+                  if (dischargeDate && val >= dischargeDate)
+                    return 'Admission Date must be before Discharge Date';
+                },
+              }}
+              render={({ field }) => (
+                <PopupDatePicker
+                  label='Admission Date'
+                  date={field.value}
+                  onChange={(date) => {
+                    field.onChange(date);
+                    trigger('dischargeDate');
+                    trigger('dateOfBirth');
+                  }}
+                  maxDate={yesterday}
+                />
+              )}
+            />
+            {errors.admissionDate && (
+              <span className='text-red-500 text-xs'>
+                {errors.admissionDate.message}
+              </span>
             )}
-          />
-          <Controller
-            control={control}
-            name='dischargeDate'
-            render={({ field }) => (
-              <PopupDatePicker
-                label='Discharge Date'
-                date={field.value}
-                onChange={field.onChange}
-                maxDate={yesterday}
-              />
+          </div>
+          <div className='w-full'>
+            <Controller
+              control={control}
+              name='dischargeDate'
+              rules={{
+                required: 'Discharge Date is required',
+                validate: (val) => {
+                  const admissionDate = getValues('admissionDate');
+                  if (admissionDate && val <= admissionDate)
+                    return 'Discharge Date must be after Admission Date';
+                },
+              }}
+              render={({ field }) => (
+                <PopupDatePicker
+                  label='Discharge Date'
+                  date={field.value}
+                  onChange={(date) => {
+                    field.onChange(date);
+                    trigger('admissionDate');
+                  }}
+                  maxDate={yesterday}
+                />
+              )}
+            />
+            {errors.dischargeDate && (
+              <span className='text-red-500 text-xs'>
+                {errors.dischargeDate.message}
+              </span>
             )}
-          />
+          </div>
         </div>
 
         <div>
           <select
             className='border border-gray-300 rounded-md p-2 w-full'
-            defaultValue=''
             {...register('status', { required: 'Status is required' })}
           >
             <option value='' disabled>
@@ -208,8 +273,12 @@ export default function AddRecordForm({ isOpen, setIsOpen }) {
           )}
         </div>
 
-        <Button type='submit' disabled={isPending}>
-          {isPending ? 'Adding...' : 'Add Record'}
+        <Button
+          type='submit'
+          disabled={isPending}
+          className={`${isPending ? 'bg-gray-400' : 'bg-primary'}`}
+        >
+          {isEdit ? 'Update Record' : 'Add Record'}
         </Button>
       </form>
     </Modal>

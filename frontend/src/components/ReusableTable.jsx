@@ -1,42 +1,46 @@
-import { useReactTable } from '@tanstack/react-table';
-import { flexRender } from '@tanstack/react-table';
-import { getCoreRowModel } from '@tanstack/react-table';
-import { Search } from 'lucide-react';
+import {
+  flexRender,
+  getCoreRowModel,
+  useReactTable,
+} from '@tanstack/react-table';
+import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
+import { useQueryState } from 'nuqs';
 
-export default function ReusableTable({ data, columns }) {
+export default function ReusableTable({ data, columns, isLoading }) {
+  const [sortBy, setSortBy] = useQueryState('sortBy', { defaultValue: 'id' });
+  const [sortOrder, setSortOrder] = useQueryState('sortOrder', {
+    defaultValue: 'asc',
+  });
+
   const table = useReactTable({
     data,
     columns,
     getCoreRowModel: getCoreRowModel(),
   });
 
-  return (
-    <div className='flex flex-col gap-4'>
-      <div className='flex flex-col sm:flex-row gap-3'>
-        <div className='relative flex-1'>
-          <Search className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary' />
-          <input
-            type='text'
-            placeholder='Search patients...'
-            className='w-full pl-9 pr-4 py-2 rounded-lg border border-secondary/40 text-sm text-accent placeholder-secondary/60 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary'
-          />
-        </div>
-        <select className='px-3 py-2 rounded-lg border border-secondary/40 text-sm text-accent focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary bg-white'>
-          <option value=''>All Statuses</option>
-          <option value='Active'>Active</option>
-          <option value='Discharged'>Discharged</option>
-          <option value='Pending'>Pending</option>
-          <option value='Cancelled'>Cancelled</option>
-        </select>
-        <input
-          type='text'
-          placeholder='Filter by department...'
-          className='px-3 py-2 rounded-lg border border-secondary/40 text-sm text-accent placeholder-secondary/60 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary'
-        />
-      </div>
+  const onSort = (columnId) => {
+    if (sortBy === columnId) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(columnId);
+      setSortOrder('asc');
+    }
+  };
 
+  const SortIcon = ({ columnId }) => {
+    if (sortBy !== columnId)
+      return <ArrowUpDown className='w-3.5 h-3.5 opacity-40' />;
+    return sortOrder === 'asc' ? (
+      <ArrowUp className='w-3.5 h-3.5 text-primary' />
+    ) : (
+      <ArrowDown className='w-3.5 h-3.5 text-primary' />
+    );
+  };
+
+  return (
+    <div className='flex flex-col gap-4 min-w-0'>
       <div className='overflow-x-auto rounded-lg border border-secondary'>
-        <table className='w-full text-sm'>
+        <table className='min-w-full text-sm'>
           <thead className='bg-accent text-white'>
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
@@ -45,9 +49,22 @@ export default function ReusableTable({ data, columns }) {
                     key={header.id}
                     className='px-4 py-3 text-left font-semibold tracking-wide border-b border-secondary'
                   >
-                    {flexRender(
-                      header.column.columnDef.header,
-                      header.getContext(),
+                    {header.column.columnDef.enableSorting === false ? (
+                      flexRender(
+                        header.column.columnDef.header,
+                        header.getContext(),
+                      )
+                    ) : (
+                      <button
+                        className='flex items-center gap-1.5 hover:text-primary/80 transition-colors'
+                        onClick={() => onSort(header.id)}
+                      >
+                        {flexRender(
+                          header.column.columnDef.header,
+                          header.getContext(),
+                        )}
+                        <SortIcon columnId={header.id} />
+                      </button>
                     )}
                   </th>
                 ))}
@@ -55,20 +72,46 @@ export default function ReusableTable({ data, columns }) {
             ))}
           </thead>
           <tbody>
-            {table.getRowModel().rows.map((row, rowIndex) => (
-              <tr
-                key={row.id}
-                className={`border-b border-secondary/20 transition-colors hover:bg-primary/10 ${
-                  rowIndex % 2 === 0 ? 'bg-white' : 'bg-secondary/5'
-                }`}
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className='px-4 py-3 text-accent'>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
+            {isLoading ? (
+              Array.from({ length: 10 }).map((_, rowIndex) => (
+                <tr
+                  key={rowIndex}
+                  className={`border-b border-secondary/20 ${
+                    rowIndex % 2 === 0 ? 'bg-white' : 'bg-secondary/5'
+                  }`}
+                >
+                  {columns.map((_, colIndex) => (
+                    <td key={colIndex} className='px-6 py-3'>
+                      <div className='h-4 rounded bg-secondary/20 animate-pulse w-full' />
+                    </td>
+                  ))}
+                </tr>
+              ))
+            ) : data?.length === 0 ? (
+              <tr>
+                <td colSpan={columns.length} className='text-center py-4'>
+                  No records found
+                </td>
               </tr>
-            ))}
+            ) : (
+              table.getRowModel().rows.map((row, rowIndex) => (
+                <tr
+                  key={row.id}
+                  className={`border-b border-secondary/20 transition-colors hover:bg-primary/10 ${
+                    rowIndex % 2 === 0 ? 'bg-white' : 'bg-secondary/5'
+                  }`}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <td key={cell.id} className='px-4 py-3 text-accent'>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext(),
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>

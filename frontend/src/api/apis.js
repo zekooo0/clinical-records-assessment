@@ -4,8 +4,16 @@ const createRecord = (data) => {
   return axiosInstance.post('/api/records', data);
 };
 
-const getRecords = () => {
-  return axiosInstance.get('/api/records');
+const getRecords = (params) => {
+  return axiosInstance.get('/api/records', { params });
 };
 
-export { createRecord, getRecords };
+const updateRecord = (id, data) => {
+  return axiosInstance.put(`/api/records/${id}`, data);
+};
+
+const deleteRecord = (id) => {
+  return axiosInstance.delete(`/api/records/${id}`);
+};
+
+export { createRecord, getRecords, updateRecord, deleteRecord };

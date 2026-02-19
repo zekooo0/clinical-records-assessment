@@ -135,6 +135,7 @@ export default function RecordForm({ isOpen, setIsOpen, isEdit, record }) {
                 date={field.value}
                 onChange={(date) => {
                   field.onChange(date);
+                  trigger('dateOfBirth');
                   trigger('admissionDate');
                 }}
                 maxDate={yesterday}
@@ -220,6 +221,7 @@ export default function RecordForm({ isOpen, setIsOpen, isEdit, record }) {
                   date={field.value}
                   onChange={(date) => {
                     field.onChange(date);
+                    trigger('dischargeDate');
                     trigger('admissionDate');
                   }}
                   maxDate={yesterday}

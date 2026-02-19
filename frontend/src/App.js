@@ -117,19 +117,25 @@ function App() {
         <Button onClick={onOpenForm}>Add Record</Button>
       </header>
 
-      <div className='flex flex-col gap-4 w-full max-w-[1200px] mx-auto'>
-        <TableControls />
-        <ReusableTable
-          data={records?.data?.data}
-          columns={columns}
-          isLoading={isLoading}
-        />
-        <Pagination
-          page={pagination?.page ?? 1}
-          totalPages={pagination?.totalPages ?? 1}
-          onPageChange={setPage}
-        />
-      </div>
+      {error ? (
+        <div className='mx-auto'>
+          <h3 className='text-red-500'>Something went wrong</h3>
+        </div>
+      ) : (
+        <div className='flex flex-col gap-4 w-full max-w-[1200px] mx-auto'>
+          <TableControls />
+          <ReusableTable
+            data={records?.data?.data}
+            columns={columns}
+            isLoading={isLoading}
+          />
+          <Pagination
+            page={pagination?.page ?? 1}
+            totalPages={pagination?.totalPages ?? 1}
+            onPageChange={setPage}
+          />
+        </div>
+      )}
       <RecordForm
         key={record?.id ?? 'new'}
         isOpen={isOpen}
